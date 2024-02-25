@@ -11,6 +11,7 @@ paramiko = "^3.4.0"
 rich = "^13.7.0"
 pyfiglet = "^1.0.2"
 aiosqlite = "^0.20.0"
+texasholdem = "^0.10.0"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -4,12 +4,13 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Optional
 
 import aiosqlite
 from rich import print
 
-INTERNAL_VERSION_TABLE_NAME = "__version_table__"
+from sshpoker.const import (DEFAULT_STARTING_CURRENCY,
+                            INTERNAL_VERSION_TABLE_NAME)
 
 
 def reduce_by_empty_newline(a: List[List[Any]], x) -> List[List[Any]]:
@@ -125,18 +126,66 @@ class SSHPokerDB(Database):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    async def get_user(self, pubkey_b64: str):
-        res = await self._direct_exec(
-            "select * from user where pubkey = ?", (pubkey_b64,)
-        )
+    async def get_user(self, pubkey_b64: str, *, with_stats: bool = False):
+        q_str = "select * from user where pubkey = ?"
+        if with_stats:
+            q_str = (
+                "select * from user left join stats "
+                "where stats.pubkey = user.pubkey and user.pubkey = ?"
+            )
+        res = await self._direct_exec(q_str, (pubkey_b64,))
 
         if len(res) == 0:
             return None
 
         return res[0]
 
-    async def new_user(self, pubkey_b64: str, username: str):
-        return await self._direct_exec(
-            "insert into user values (?, ?, ?)",
-            (pubkey_b64, username, datetime.datetime.now()),
+    async def get_user_currency(self, pubkey_b64: str) -> Optional[int]:
+        res = await self._direct_exec(
+            "select currency from wallet where pubkey = ?", (pubkey_b64,)
         )
+
+        if len(res) == 0:
+            return None
+
+        return res[0][0]
+
+    async def log_user_in(self, pubkey_b64: str, host: str, port: int):
+        res = await self._direct_exec(
+            "select * from session where pubkey = ?", (pubkey_b64,)
+        )
+        if len(res):
+            return res
+        await self._direct_exec(
+            "insert into session values (?, ?, ?, ?)",
+            (pubkey_b64, datetime.datetime.now(), host, port),
+        )
+        return None
+
+    async def log_user_out(self, pubkey_b64: str) -> bool:
+        res = await self._direct_exec(
+            "select * from session where pubkey = ?", (pubkey_b64,)
+        )
+        if len(res) == 0:
+            return False
+        await self._direct_exec("delete from session where pubkey = ?", (pubkey_b64,))
+        return True
+
+    async def new_user(self, pubkey_b64: str) -> None:
+        # TODO: should be a single transaction!
+        await self._direct_exec(
+            "insert into stats values (?, 0, 0, 0, 0)", (pubkey_b64,)
+        )
+        await self._direct_exec(
+            "insert into wallet values (?, ?)",
+            (
+                pubkey_b64,
+                DEFAULT_STARTING_CURRENCY,
+            ),
+        )
+        await self._direct_exec(
+            "insert into user values (?, ?)",
+            (pubkey_b64, datetime.datetime.now()),
+        )
+
+   # async def create_table(self, pubkey_b64: str, )
