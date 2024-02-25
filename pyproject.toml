@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "sshpoker"
+version = "0.1.0"
+description = ""
+authors = ["Ed Fletcher <ed@computerpho.be>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+paramiko = "^3.4.0"
+rich = "^13.7.0"
+pyfiglet = "^1.0.2"
+aiosqlite = "^0.20.0"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.2.0"
+isort = "^5.13.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
